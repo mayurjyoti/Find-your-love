@@ -1,0 +1,575 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>HeartMatch - Find Your Life Partner</title>
+
+<style>
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  padding: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: Arial, sans-serif;
+  background: linear-gradient(135deg, #ff758c, #ff7eb3, #a18cd1);
+}
+
+.container {
+  width: 100%;
+  max-width: 420px;
+  background: white;
+  padding: 28px 22px;
+  border-radius: 24px;
+  text-align: center;
+  box-shadow: 0 10px 40px #0003;
+}
+
+h1 {
+  color: #ff477e;
+}
+
+p {
+  color: #555;
+  line-height: 1.6;
+}
+
+button {
+  width: 100%;
+  padding: 14px;
+  margin-top: 15px;
+  border: none;
+  border-radius: 30px;
+  background: #ff477e;
+  color: white;
+  font-size: 16px;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.98);
+}
+
+input {
+  width: 100%;
+  padding: 12px;
+  margin-top: 12px;
+}
+
+.page {
+  display: none;
+}
+
+.page.active {
+  display: block;
+}
+
+.heart {
+  font-size: 65px;
+  animation: beat 1s infinite;
+}
+
+@keyframes beat {
+  50% {
+    transform: scale(1.2);
+  }
+}
+
+#preview,
+#camera {
+  width: 100%;
+  max-height: 260px;
+  object-fit: cover;
+  border-radius: 15px;
+  margin-top: 15px;
+}
+
+#preview,
+#camera {
+  display: none;
+}
+
+#result {
+  font-size: 27px;
+  color: #ff477e;
+  font-weight: bold;
+  margin: 20px 0;
+}
+
+.small {
+  font-size: 12px;
+  color: #888;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+  <!-- WELCOME PAGE -->
+  <section class="page active" id="welcome">
+
+    <div class="heart">❤️</div>
+
+    <h1>HeartMatch</h1>
+
+    <h2>Find Your Life Partner</h2>
+
+    <p>Ready to discover a little surprise?</p>
+
+    <button onclick="showPage('location')">
+      Discover My Secret Admirer
+    </button>
+
+    <p class="small">
+      This is an entertainment experience.
+    </p>
+
+  </section>
+
+
+  <!-- LOCATION PAGE -->
+  <section class="page" id="location">
+
+    <h1>📍 Location Access</h1>
+
+    <p>
+      Location permission is required to continue.
+      Your browser will ask before sharing it.
+    </p>
+
+    <button onclick="getLocation()">
+      Allow Location
+    </button>
+
+    <p id="locationStatus"></p>
+
+  </section>
+
+
+  <!-- PHOTO PAGE -->
+  <section class="page" id="photo">
+
+    <h1>📸 Face Check</h1>
+
+    <p>
+      Choose a photo or use your camera.
+      Your photo stays on this device.
+    </p>
+
+    <input
+      type="file"
+      id="photoInput"
+      accept="image/*"
+    >
+
+    <button onclick="openCamera()">
+      Open Camera
+    </button>
+
+    <video
+      id="camera"
+      autoplay
+      playsinline>
+    </video>
+
+    <button
+      id="capture"
+      style="display:none"
+      onclick="takePhoto()">
+      Take Photo
+    </button>
+
+    <canvas id="canvas" style="display:none"></canvas>
+
+    <img
+      id="preview"
+      alt="Photo preview"
+    >
+
+    <p id="photoStatus"></p>
+
+    <button onclick="checkFace()">
+      Continue
+    </button>
+
+  </section>
+
+
+  <!-- RESULT PAGE -->
+  <section class="page" id="resultPage">
+
+    <div class="heart">💖</div>
+
+    <h1>Your Secret Admirer</h1>
+
+    <p>
+      Someone special is waiting in your story...
+    </p>
+
+    <div id="result"></div>
+
+    <p>✨ A little surprise just for you! ✨</p>
+
+    <p class="small">
+      This name is randomly generated for entertainment.
+      It does not identify a real admirer.
+    </p>
+
+  </section>
+
+</div>
+
+
+<script>
+
+/* VARIABLES */
+
+/** @type {File|Blob|null} */
+let selectedPhoto = null;
+
+/** @type {MediaStream|null} */
+let cameraStream = null;
+
+let locationAllowed = false;
+
+
+/* PAGE NAVIGATION */
+
+/** @param {string} id */
+function showPage(id) {
+
+  document.querySelectorAll('.page').forEach(page => {
+    page.classList.remove('active');
+  });
+
+  document.getElementById(id).classList.add('active');
+}
+
+
+/* LOCATION PERMISSION */
+
+function getLocation() {
+
+  const status =
+    document.getElementById('locationStatus');
+
+  if (!navigator.geolocation) {
+
+    status.textContent =
+      "Location is not supported by this browser.";
+
+    return;
+  }
+
+  status.textContent =
+    "Waiting for permission...";
+
+  navigator.geolocation.getCurrentPosition(
+
+    function(position) {
+
+      locationAllowed = true;
+
+      status.textContent =
+        "Permission granted!";
+
+      setTimeout(function() {
+        showPage('photo');
+      }, 700);
+
+    },
+
+    function(error) {
+
+      status.textContent =
+        "Please allow location access in browser settings to continue.";
+
+    },
+
+    {
+      enableHighAccuracy: false,
+      timeout: 15000
+    }
+
+  );
+}
+
+
+/* PHOTO SELECTION */
+
+document
+.getElementById('photoInput')
+.addEventListener('change', function(event) {
+
+  const input = event.currentTarget;
+  const file = input.files[0];
+
+  if (!file) return;
+
+  if (!file.type.startsWith('image/')) {
+
+    alert("Please select an image.");
+
+    return;
+  }
+
+  selectedPhoto = file;
+
+  const preview =
+    document.getElementById('preview');
+
+  preview.src = URL.createObjectURL(file);
+
+  preview.style.display = 'block';
+
+  document.getElementById('photoStatus').textContent =
+    "Photo selected successfully.";
+
+});
+
+
+/* OPEN CAMERA */
+
+async function openCamera() {
+
+  try {
+
+    cameraStream =
+      await navigator.mediaDevices.getUserMedia({
+
+        video: {
+          facingMode: "user"
+        }
+
+      });
+
+    const video =
+      document.getElementById('camera');
+
+    video.srcObject = cameraStream;
+
+    video.style.display = 'block';
+
+    document.getElementById('capture').style.display =
+      'block';
+
+    document.getElementById('photoStatus').textContent =
+      "Camera opened successfully.";
+
+  }
+
+  catch(error) {
+
+    document.getElementById('photoStatus').textContent =
+      "Camera permission was not granted or camera is unavailable.";
+
+  }
+
+}
+
+
+/* TAKE PHOTO */
+
+function takePhoto() {
+
+  const video =
+    document.getElementById('camera');
+
+  const canvas =
+    document.getElementById('canvas');
+
+  if (!video.videoWidth) {
+
+    alert("Camera is not ready yet.");
+
+    return;
+  }
+
+  canvas.width = video.videoWidth;
+  canvas.height = video.videoHeight;
+
+  const context = canvas.getContext('2d');
+
+  context.drawImage(
+    video,
+    0,
+    0,
+    canvas.width,
+    canvas.height
+  );
+
+  /** @type {(blob: Blob|null) => void} */
+  const handleBlob = function(blob) {
+
+    if (!blob) {
+
+      document.getElementById('photoStatus').textContent =
+        "Could not capture photo.";
+
+      return;
+    }
+
+    selectedPhoto = blob;
+
+    const preview =
+      document.getElementById('preview');
+
+    preview.src = URL.createObjectURL(blob);
+
+    preview.style.display = 'block';
+
+    document.getElementById('photoStatus').textContent =
+      "Photo captured successfully.";
+
+  };
+
+  canvas.toBlob(handleBlob, 'image/jpeg');
+
+  if (cameraStream) {
+
+    /** @type {MediaStreamTrack[]} */
+    const tracks = cameraStream.getTracks();
+
+    tracks.forEach(function(track) {
+      track.stop();
+    });
+
+    cameraStream = null;
+  }
+
+  video.style.display = 'none';
+
+  document.getElementById('capture').style.display =
+    'none';
+
+}
+
+
+/* FACE DETECTION */
+
+async function checkFace() {
+
+  if (!locationAllowed) {
+
+    alert("Location permission is required.");
+
+    showPage('location');
+
+    return;
+  }
+
+  if (!selectedPhoto) {
+
+    alert("Please select a photo or take a photo first.");
+
+    return;
+  }
+
+  const status =
+    document.getElementById('photoStatus');
+
+  const image =
+    document.getElementById('preview');
+
+  status.textContent =
+    "Checking photo...";
+
+  try {
+
+    if (!image.complete || !image.naturalWidth) {
+
+      await new Promise(function(resolve, reject) {
+
+        image.onload = resolve;
+        image.onerror = reject;
+
+      });
+
+    }
+
+    if (!('FaceDetector' in window)) {
+
+      status.textContent =
+        "Automatic face detection is not supported in this browser. Try Chrome on a supported device.";
+
+      return;
+    }
+
+    const detector =
+      new FaceDetector({
+        fastMode: true,
+        maxDetectedFaces: 2
+      });
+
+    const faces =
+      await detector.detect(image);
+
+    if (faces.length === 0) {
+
+      status.textContent =
+        "No face detected. Please choose another photo.";
+
+      return;
+    }
+
+    showResult();
+
+  }
+
+  catch(error) {
+
+    status.textContent =
+      "Face detection is unavailable. Please try another browser.";
+
+  }
+
+}
+
+
+/* SECRET ADMIRER RESULT */
+
+function showResult() {
+
+  const names = [
+
+    
+   "Riya",
+   "Ananya",
+    "Priya",
+    "Ishita",
+    "Rohan",
+    "Diya",
+    "Meera",
+    "Sana",
+    "your bestfriend",
+    "your partner",
+    "your neighbour",
+    "Akangsha",
+  ];
+
+  const randomIndex =
+    Math.floor(Math.random() * names.length);
+
+  const name =
+    names[randomIndex];
+
+  document.getElementById('result').textContent =
+    name + " ❤️";
+
+  showPage('resultPage');
+
+}
+
+</script>
+
+</body>
+</html>
